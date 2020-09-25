@@ -1,0 +1,54 @@
+<%- include('partials/header.ejs'); %> <% if (typeof message != 'undefined') { %>
+<div><%= message %></div>
+<% } %>
+<% if (typeof data == 'undefined') { %>
+<h1>First time here?</h1>
+<h3>
+    You will need to link up a Shopify store before you will be able to access the
+    full capabilities of this application.
+</h3>
+<p>Click <a href="../settings">here</a> to get started.</p>
+<img src="../gif/moving_right_along.gif">
+<% } else { %>
+<h1>Welcome back!</h1>
+<h3>Here are some recent events to check on.</h3>
+<div class="ui two column grid">
+    <% for (var i =0; i < data.length; i++){ %>
+    <div class="column">
+        <div class="ui raised segment">
+            <h1><%= rows2[i].name %></h1>
+            <a class="ui blue ribbon label">Products Published</a>
+            <table class="ui very basic collapsing celled table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% for (var j=0; j < data[i].events.length; j++) { %>
+                    <tr>
+                        <td>
+                            <h4 class="ui image header">
+                                <a href="https://<%= rows2[i].shop_url %><%= data[i].events[j].path %>"
+                                    target="_blank"><i class="share square icon"></i></a>
+                                <div class="content">
+                                    <a href="https://<%= rows2[i].shop_url %><%= data[i].events[j].path %>"
+                                        target="_blank"><%= data[i].events[j].arguments[0] %></a>
+                                    <div class="sub header"><%= rows2[i].abbrev %></div>
+                                </div>
+                            </h4>
+                        </td>
+                        <td>
+                            <%= moment.utc(data[i].events[j].created_at).format('MMMM Do, Y h:mm a'); %>
+                        </td>
+                    </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <% } %>
+</div>
+<% } %>
+<%- include('partials/footer.ejs'); %>

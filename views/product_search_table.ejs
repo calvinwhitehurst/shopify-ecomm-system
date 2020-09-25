@@ -1,0 +1,48 @@
+<%- include('partials/header.ejs'); %>
+<script type="text/javascript">
+    $(document).ready(function () {
+        $('#thumbnail').typeahead({
+            name: 'search',
+            remote: 'http://localhost:3000/product_search_table?key=%QUERY',
+            limit: 1
+        });
+    });    
+</script>
+<% if(obj.length>0){ %>
+
+<h3><%= obj.length %> Products Found</h3>
+<table cellspacing="0" cellpadding="0" border="0" width="100%" class="ui celled padded table product-table">
+    <thead>
+        <tr>
+            <th class="table-header-repeat" width="100">Image</th>
+            <th class="table-header-repeat line-left" width="100">Code</th>
+            <th class="table-header-repeat line-left">Name</th>
+        </tr>
+    </thead>
+    <tbody>
+
+        <% var x = 0;%>
+        <% for (var i = 0; i < obj.length; i++){ x++; %>
+        <tr <% if (x % 2) { %> class="alt-row" <% } %>>
+            <td>
+                <a href="/product_view/<%= obj[i].prd_id %>"><img loading="lazy" alt="image" name="search"
+                        src="/img/<%= obj[i].pim_id %>-L.jpg" width="75" height="100" /></a>
+            </td>
+            <td>
+                <a href="/product_view/<%= obj[i].prd_id %>"><%= obj[i].prd_code %></a>
+            </td>
+            <td>
+                <%= obj[i].prd_name %>
+            </td>
+        </tr>
+        <% } %>
+    </tbody>
+</table>
+<% }else{ %>
+<strong>Sorry, unable to find any products matching your search.</strong>
+<br>
+<br>
+<a href="/productsearch">Go back to search</a>
+
+<% }; %>
+<%- include('partials/footer.ejs'); %>

@@ -21,7 +21,7 @@ cron.schedule("00 30 * * * *", function () {
             "/admin/api/2019-10/";
           var id = rows[i].id;
           var warehouse = rows[i].warehouse;
-          dbsync(cred, id, warehouse);
+          //dbsync(cred, id, warehouse);
         }
         if (err) {
           //throw err;

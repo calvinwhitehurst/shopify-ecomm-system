@@ -2,3 +2,6 @@ node_modules
 .snyk
 gif
 img
+connection.js
+database.js
+uploads

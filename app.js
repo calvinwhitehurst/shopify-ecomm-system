@@ -62,8 +62,7 @@ require("./config/passport")(passport);
 
 app.set("view engine", "ejs");
 app.set("port", process.env.PORT || 3000);
-app.use(express.static(__dirname + "/public"));
-app.use(favicon(__dirname + "/public/img/favicon.ico"));
+
 app.locals.moment = require("moment");
 app.use(cors());
 app.use(morgan("dev"));
@@ -311,36 +310,32 @@ app.get("/logout", function (req, res) {
   res.redirect("/");
 });
 
-app.post(
-  "/",
-  passport.authenticate("local-login", {
-    successRedirect: "/home", // redirect to the secure profile section
-    failureRedirect: "/", // redirect back to the signup page if there is an error
-    failureFlash: true, // allow flash messages
-  }),
-  function (res, err, user, context = {}) {
-    if (err) {
-      console.log("1st: " + err);
-      return next(err);
-    }
-    if (context.statusCode === 429) {
-      console.log("status code was triggered");
-      res.set("Retry-After", String(context.retrySecs));
-      return res.status(429).send("Too Many Requests");
-    }
-    if (!user) {
-      console.log("user was triggered");
-      return res.redirect("/");
-    }
-    console.log("Success");
-    res.redirect("/home");
-  }
-);
-
-app.get("/img/*", isLoggedIn, (req, res, next) => {
-  return res.sendFile(path.join(__dirname, "img", path.sep, file));
+var authentication = passport.authenticate("local-login", {
+  successRedirect: "/home", // redirect to the secure profile section
+  failureRedirect: "/", // redirect back to the signup page if there is an error
+  failureFlash: true, // allow flash messages
 });
 
+app.post("/", authentication, function (res, err, user, context = {}) {
+  if (err) {
+    console.log("1st: " + err);
+    return next(err);
+  }
+  if (context.statusCode === 429) {
+    console.log("status code was triggered");
+    res.set("Retry-After", String(context.retrySecs));
+    return res.status(429).send("Too Many Requests");
+  }
+  if (!user) {
+    console.log("user was triggered");
+    return res.redirect("/");
+  }
+  console.log("Success");
+  res.redirect("/home");
+});
+
+app.use(authentication, express.static(__dirname + "/public"));
+app.use(authentication, favicon(__dirname + "/public/img/favicon.ico"));
 app.get("/*", function (req, res) {
   res.redirect("/");
 });

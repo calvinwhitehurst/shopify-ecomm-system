@@ -1,7 +1,7 @@
 var express = require("express");
 var app = express();
 var session = require("express-session");
-
+var fs = require("fs");
 var morgan = require("morgan");
 var cors = require("cors");
 var bodyParser = require("body-parser");
@@ -19,9 +19,12 @@ var fetchJSON = require("./routes/custom_modules/fetchJSON.js");
 var queries = require("./routes/custom_modules/queries.js");
 var sqlQuery = require("./routes/custom_modules/sqlQuery.js");
 var daysAgo = require("./routes/custom_modules/daysAgo.js");
+const httpLogger = require("./routes/httpLogger.js");
 
+app.use(httpLogger);
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
 var { RateLimiterMemory, RateLimiterRes } = require("rate-limiter-flexible");
 
 var productview = require("./routes/productview");
@@ -34,7 +37,6 @@ var labelsRoutes = require("./routes/labels");
 var searchRoutes = require("./routes/search");
 var csvRoutes = require("./routes/csvmysql");
 var adminRoutes = require("./routes/admin.js");
-var taxAndHarms = require("./routes/taxAndHarms.js");
 var userProfile = require("./routes/userProfile.js");
 var store = require("./routes/syncToDb.js");
 var webhooks = require("./routes/webhooks.js");
@@ -62,10 +64,21 @@ require("./config/passport")(passport);
 
 app.set("view engine", "ejs");
 app.set("port", process.env.PORT || 3000);
-
+app.use(express.static(__dirname + "/public"));
+app.use(favicon(__dirname + "/public/img/favicon.ico"));
 app.locals.moment = require("moment");
 app.use(cors());
-app.use(morgan("dev"));
+
+function skipLog(req, res) {
+  var url = req.url;
+  if (url.indexOf("?") > 0) url = url.substr(0, url.indexOf("?"));
+  if (url.match(/(js|jpg|png|ico|css|woff|woff2|eot)$/gi)) {
+    return true;
+  }
+  return false;
+}
+
+app.use(morgan("dev", { skip: skipLog }));
 var options = {
   host: "localhost",
   port: 3306,
@@ -105,7 +118,6 @@ app.use(searchRoutes);
 app.use(csvRoutes);
 app.use(adminRoutes);
 app.use(printshippinglabels);
-app.use(taxAndHarms);
 app.use(userProfile);
 app.use(store);
 app.use(webhooks);
@@ -310,32 +322,36 @@ app.get("/logout", function (req, res) {
   res.redirect("/");
 });
 
-var authentication = passport.authenticate("local-login", {
-  successRedirect: "/home", // redirect to the secure profile section
-  failureRedirect: "/", // redirect back to the signup page if there is an error
-  failureFlash: true, // allow flash messages
+app.post(
+  "/",
+  passport.authenticate("local-login", {
+    successRedirect: "/home", // redirect to the secure profile section
+    failureRedirect: "/", // redirect back to the signup page if there is an error
+    failureFlash: true, // allow flash messages
+  }),
+  function (res, err, user, context = {}) {
+    if (err) {
+      console.log("1st: " + err);
+      return next(err);
+    }
+    if (context.statusCode === 429) {
+      console.log("status code was triggered");
+      res.set("Retry-After", String(context.retrySecs));
+      return res.status(429).send("Too Many Requests");
+    }
+    if (!user) {
+      console.log("user was triggered");
+      return res.redirect("/");
+    }
+    console.log("Success");
+    res.redirect("/home");
+  }
+);
+
+app.get("/img/*", isLoggedIn, (req, res, next) => {
+  return res.sendFile(path.join(__dirname, "img", path.sep, file));
 });
 
-app.post("/", authentication, function (res, err, user, context = {}) {
-  if (err) {
-    console.log("1st: " + err);
-    return next(err);
-  }
-  if (context.statusCode === 429) {
-    console.log("status code was triggered");
-    res.set("Retry-After", String(context.retrySecs));
-    return res.status(429).send("Too Many Requests");
-  }
-  if (!user) {
-    console.log("user was triggered");
-    return res.redirect("/");
-  }
-  console.log("Success");
-  res.redirect("/home");
-});
-
-app.use(authentication, express.static(__dirname + "/public"));
-app.use(authentication, favicon(__dirname + "/public/img/favicon.ico"));
 app.get("/*", function (req, res) {
   res.redirect("/");
 });

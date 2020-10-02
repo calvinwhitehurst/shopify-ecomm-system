@@ -12,7 +12,7 @@ function skipLog(req, res) {
 
 morgan.token(
   "ip",
-  (req) => req.headers["x-real-ip"] || req.connection.remoteAddress
+  (req) => req.headers["x-forwarded-for"] || req.connection.remoteAddress
 );
 morgan.token("user", (req) => {
   if (req.user) {

@@ -63,6 +63,7 @@ app.use(function (req, res, next) {
 require("./config/passport")(passport);
 
 app.set("view engine", "ejs");
+app.set("trust proxy", true);
 app.set("port", process.env.PORT || 3000);
 app.use(express.static(__dirname + "/public"));
 app.use(favicon(__dirname + "/public/img/favicon.ico"));

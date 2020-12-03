@@ -6,3 +6,4 @@ connection.js
 database.js
 uploads
 logs
+key.json

@@ -8,41 +8,72 @@
         });
     });    
 </script>
-<% if(obj.length>0){ %>
 
-<h3><%= obj.length %> Products Found</h3>
-<table cellspacing="0" cellpadding="0" border="0" width="100%" class="ui celled padded table product-table">
-    <thead>
-        <tr>
-            <th class="table-header-repeat" width="100">Image</th>
-            <th class="table-header-repeat line-left" width="100">Code</th>
-            <th class="table-header-repeat line-left">Name</th>
-        </tr>
-    </thead>
-    <tbody>
+<h1>Settings</h1>
+<div class="ui top attached tabular menu">
+    <a class="active item" data-tab="first">Inventory</a>
+    <a class="item" data-tab="second">Photos</a>
+</div>
+<div class="ui bottom attached active tab segment" data-tab="first">
+    <h3>This some content</h3>
+    <table class="ui celled structured striped table" id="data">
+        <thead>
+            <th>Product Name</th>
+            <th>SKU</th>
+            <% rows.forEach(function(row){ %>
+            <th><%= row.abbrev %></th>
+            <% }); %>
+        </thead>
+        <tbody>
+            <tr>
+                <td>The Greek God Briefs</td>
+                <td>K208</td>
+                <% rows.forEach(function(row){ %>
+                <td>2</td>
+                <% }); %>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<div class="ui bottom attached tab segment" data-tab="second">
+    <% if(obj.length>0){ %>
 
-        <% var x = 0;%>
-        <% for (var i = 0; i < obj.length; i++){ x++; %>
-        <tr <% if (x % 2) { %> class="alt-row" <% } %>>
-            <td>
-                <a href="/product_view/<%= obj[i].prd_id %>"><img loading="lazy" alt="image" name="search"
-                        src="/img/<%= obj[i].pim_id %>-L.jpg" width="75" height="100" /></a>
-            </td>
-            <td>
-                <a href="/product_view/<%= obj[i].prd_id %>"><%= obj[i].prd_code %></a>
-            </td>
-            <td>
-                <%= obj[i].prd_name %>
-            </td>
-        </tr>
-        <% } %>
-    </tbody>
-</table>
-<% }else{ %>
-<strong>Sorry, unable to find any products matching your search.</strong>
-<br>
-<br>
-<a href="/productsearch">Go back to search</a>
+    <h3><%= obj.length %> Products Found</h3>
+    <table cellspacing="0" cellpadding="0" border="0" width="100%" class="ui celled padded table product-table">
+        <thead>
+            <tr>
+                <th class="table-header-repeat" width="100">Image</th>
+                <th class="table-header-repeat line-left" width="100">Code</th>
+                <th class="table-header-repeat line-left">Name</th>
+            </tr>
+        </thead>
+        <tbody>
 
-<% }; %>
+            <% var x = 0;%>
+            <% for (var i = 0; i < obj.length; i++){ x++; %>
+            <tr <% if (x % 2) { %> class="alt-row" <% } %>>
+                <td>
+                    <a href="/product_view/<%= obj[i].prd_id %>"><img loading="lazy" alt="image" name="search"
+                            src="/img/<%= obj[i].pim_id %>-L.jpg" width="75" height="100" /></a>
+                </td>
+                <td>
+                    <a href="/product_view/<%= obj[i].prd_id %>"><%= obj[i].prd_code %></a>
+                </td>
+                <td>
+                    <%= obj[i].prd_name %>
+                </td>
+            </tr>
+            <% } %>
+        </tbody>
+    </table>
+    <% }else{ %>
+    <strong>Sorry, unable to find any products matching your search.</strong>
+    <% }; %>
+</div>
+
+<script>
+    $('.menu .item')
+        .tab()
+        ;
+</script>
 <%- include('partials/footer.ejs'); %>

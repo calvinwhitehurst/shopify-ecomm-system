@@ -23,7 +23,7 @@ module.exports = {
     "INSERT IGNORE INTO `product` (`prd_id`,`prd_code`,`prd_name`,`prd_desc`) VALUES ",
   profile:
     "SELECT `id`, `username`, `password`, `picture` FROM `users` WHERE `id` = ?;",
-  stores: "SELECT * FROM stores;",
+  stores: "SELECT * FROM stores ORDER BY warehouse DESC;",
   storesCreate:
     "CREATE TABLE IF NOT EXISTS stores (id BIGINT(32) NOT NULL, abbrev varchar(255), name varchar(255), api_key varchar(255), pswrd varchar(255), shop_url varchar(255), logo_url varchar(255), country INT(1), email varchar(60), warehouse int(3) NOT NULL, PRIMARY KEY(id));",
   storesDelete: "DELETE FROM stores WHERE id = ?",

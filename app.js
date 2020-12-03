@@ -65,21 +65,11 @@ require("./config/passport")(passport);
 app.set("view engine", "ejs");
 app.set("trust proxy", true);
 app.set("port", process.env.PORT || 3000);
-app.use(express.static(__dirname + "/public"));
-app.use(favicon(__dirname + "/public/img/favicon.ico"));
+
 app.locals.moment = require("moment");
 app.use(cors());
 
-function skipLog(req, res) {
-  var url = req.url;
-  if (url.indexOf("?") > 0) url = url.substr(0, url.indexOf("?"));
-  if (url.match(/(js|jpg|png|ico|css|woff|woff2|eot)$/gi)) {
-    return true;
-  }
-  return false;
-}
-
-app.use(morgan("dev", { skip: skipLog }));
+app.use(morgan("dev"));
 var options = {
   host: "localhost",
   port: 3306,
@@ -146,8 +136,6 @@ const limiterConsecutiveFailsByUsernameAndIP = new RateLimiterMemory({
   duration: 60 * 60 * 24 * 14, // Store number for 14 days since first fail
   blockDuration: 60 * 60, // Block for 1 hour
 });
-
-// ////////////////////////////////////////////////////////////
 
 passport.use(
   // "local-login",
@@ -268,7 +256,13 @@ app.get("/", function (req, res) {
     }
   );
 });
-
+var authentication = passport.authenticate("local-login", {
+  successRedirect: "/home", // redirect to the secure profile section
+  failureRedirect: "/", // redirect back to the signup page if there is an error
+  failureFlash: true, // allow flash messages
+});
+app.use(authentication, express.static(__dirname + "/public"));
+app.use(favicon(__dirname + "/public/img/favicon.ico"));
 app.get("/home", isLoggedIn, function (req, res, next) {
   var username = req.user.username;
   sqlQuery(
@@ -323,31 +317,23 @@ app.get("/logout", function (req, res) {
   res.redirect("/");
 });
 
-app.post(
-  "/",
-  passport.authenticate("local-login", {
-    successRedirect: "/home", // redirect to the secure profile section
-    failureRedirect: "/", // redirect back to the signup page if there is an error
-    failureFlash: true, // allow flash messages
-  }),
-  function (res, err, user, context = {}) {
-    if (err) {
-      console.log("1st: " + err);
-      return next(err);
-    }
-    if (context.statusCode === 429) {
-      console.log("status code was triggered");
-      res.set("Retry-After", String(context.retrySecs));
-      return res.status(429).send("Too Many Requests");
-    }
-    if (!user) {
-      console.log("user was triggered");
-      return res.redirect("/");
-    }
-    console.log("Success");
-    res.redirect("/home");
+app.post("/", authentication, function (res, err, user, context = {}) {
+  if (err) {
+    console.log("1st: " + err);
+    return next(err);
   }
-);
+  if (context.statusCode === 429) {
+    console.log("status code was triggered");
+    res.set("Retry-After", String(context.retrySecs));
+    return res.status(429).send("Too Many Requests");
+  }
+  if (!user) {
+    console.log("user was triggered");
+    return res.redirect("/");
+  }
+  console.log("Success");
+  res.redirect("/home");
+});
 
 app.get("/img/*", isLoggedIn, (req, res, next) => {
   return res.sendFile(path.join(__dirname, "img", path.sep, file));

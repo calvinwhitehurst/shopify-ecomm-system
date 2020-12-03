@@ -59,10 +59,9 @@ module.exports = {
   upload2:
     "SELECT productsusa.title, productsusa.sku, productsusa.date, USA, Westacott_Rd FROM productsusa INNER JOIN productsuk ON productsusa.sku = productsuk.sku;",
   usersBase:
-    "INSERT IGNORE INTO `users` (`username`, `password`, `roles`, `lastLogin`, `picture`) VALUES ('david', '$2a$10$XdmCHF3iWWx5HCsw5k8n.On.6pJIi96ZB1hUEIsQugmgwKhe9alzi', '2', 'July 8th 2020, 12:24 pm', 'undefined-1576178124671.jpg');",
+    "INSERT IGNORE INTO `users` (`username`, `password`, `roles`, `lastLogin`, `picture`, `email`, `token`, `tokenexpir`) VALUES ('david', '$2a$10$XdmCHF3iWWx5HCsw5k8n.On.6pJIi96ZB1hUEIsQugmgwKhe9alzi', '2', 'July 8th 2020, 12:24 pm', 'undefined-1576178124671.jpg', 'all@bodyaware.com', NULL, NULL);",
   usersCreate:
-    "CREATE TABLE IF NOT EXISTS users (`id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, `username` varchar(20) NOT NULL UNIQUE, `password` char(60) NOT NULL, `roles` char(1) NOT NULL, `lastLogin` varchar(30) NOT NULL,`picture` varchar(200) NOT NULL, PRIMARY KEY(id));",
-  userDeserial: "SELECT * FROM users WHERE id = ?",
+    "CREATE TABLE IF NOT EXISTS users (`id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, `username` varchar(20) NOT NULL UNIQUE, `password` char(60) NOT NULL, `roles` char(1) NOT NULL, `lastLogin` varchar(30) NOT NULL,`picture` varchar(200) NOT NULL, `email` varchar(150) NOT NULL, `token` varchar(150) NULL, `tokenexpir` varchar(30) NULL, PRIMARY KEY(id));",
   userName: "SELECT * FROM users WHERE username = ?;",
   users:
     "SELECT `id`, `username`, `roles`, `lastLogin`, `picture` FROM `users`;",

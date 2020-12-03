@@ -2,7 +2,9 @@ var express = require("express");
 var router = express.Router();
 var isLoggedIn = require("./custom_modules/isLoggedIn.js");
 var connection = require("./custom_modules/connection");
+var mustEmp = require("./custom_modules/mustEmp.js");
 var queries = require("./custom_modules/queries.js");
+var request = require("request");
 
 router.get("/access", isLoggedIn, function (req, res) {
   //look at later
@@ -256,5 +258,49 @@ router.post("/searchdb", function (req, res) {
     }
   );
 });
+
+router.get("/inventoryresults", function (req, res) {
+  connection.query(
+    queries.stores + queries.userName,
+    req.user.username,
+    function (err, rows, fields) {
+      res.render("inventoryresults", {
+        rows: rows[0],
+        profile: rows[1][0],
+      });
+    }
+  );
+});
+
+// router.post("/inventory", function(req, res) {
+//   request(
+//     {
+//       url:
+//         "https://0ef1ea1ffad6e9bc352729533edf99ec:9772dc4273c125379f9f40f037fec727@xdresstest.myshopify.com/admin/api/2020-01/inventory_levels/set.json",
+//       method: "POST",
+//       json: true, // <--Very important!!!
+//       body: {
+//         location_id: req.body.location_id,
+//         inventory_item_id: req.body.inv_id,
+//         available: req.body.inv
+//       }
+//     },
+//     function(error, response, body) {
+//       console.log(response);
+//     }
+//   );
+//   connection.query(
+//     "UPDATE `store_fbaus_var` SET `inv`= ? WHERE `var_id` = ?",
+//     [req.body.inv, req.body.prod_id],
+//     function(err) {
+//       res.status(200).send({
+//         value: req.body.inv,
+//         sku: req.body.sku
+//       });
+//     }
+//   );
+// });
+
+
 
 module.exports = router;

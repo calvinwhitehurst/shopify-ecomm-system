@@ -16,6 +16,7 @@ passport.use(
       // by default, local strategy uses username and password, we will override with email
       usernameField: "username",
       passwordField: "password",
+      emailField: "email",
       passReqToCallback: true, // allows us to pass back the entire request to the callback
     },
     function (req, username, password, done) {
@@ -45,10 +46,11 @@ passport.use(
               roles: req.body.roles,
               lastLogin: mysqlTimestamp,
               picture: picture,
+              email: req.body.email,
             };
 
             var insertQuery =
-              "INSERT INTO users ( username, password, roles, lastLogin, picture ) values (?,?,?,?,?)";
+              "INSERT INTO users ( username, password, roles, lastLogin, picture, email ) values (?,?,?,?,?,?)";
 
             connection.query(
               insertQuery,
@@ -58,6 +60,7 @@ passport.use(
                 newUserMysql.roles,
                 newUserMysql.lastLogin,
                 newUserMysql.picture,
+                newUserMysql.email
               ],
               function (err, rows) {
                 newUserMysql.id = rows.insertId;

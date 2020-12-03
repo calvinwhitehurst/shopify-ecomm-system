@@ -18,6 +18,11 @@ module.exports = function downloadQueue() {
                 { responseType: "json" }
               )
               .then(function (res) {
+                if(res.data.images.length > 0){
+                connection.query(
+                  "UPDATE `photo_download_queue` SET `downloaded` = 1 WHERE `prod_id` = " +
+                    rows[i].prod_id
+                );
                 for (var j = 0; j < res.data.images.length; j++) {
                   photoDownload(res.data.images[j].src, res.data.images[j].id);
                   connection.query(
@@ -28,11 +33,14 @@ module.exports = function downloadQueue() {
                       ");"
                   );
                 }
+              }
+              })
+              .catch(function (error) {
                 connection.query(
                   "UPDATE `photo_download_queue` SET `downloaded` = 1 WHERE `prod_id` = " +
                     rows[i].prod_id
                 );
-              });
+              })
           }, i * 1000);
         }
         if (err) {

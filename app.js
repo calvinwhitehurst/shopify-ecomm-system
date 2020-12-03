@@ -2,6 +2,7 @@ var express = require("express");
 var app = express();
 var session = require("express-session");
 var fs = require("fs");
+var xss = require("xss-clean");
 var morgan = require("morgan");
 var cors = require("cors");
 var bodyParser = require("body-parser");
@@ -13,6 +14,8 @@ var favicon = require("serve-favicon");
 var helmet = require("helmet");
 var MySQLStore = require("express-mysql-session")(session);
 var moment = require("moment");
+const rateLimit = require("express-rate-limit");
+
 var isLoggedIn = require("./routes/custom_modules/isLoggedIn.js");
 var connection = require("./routes/custom_modules/connection");
 var fetchJSON = require("./routes/custom_modules/fetchJSON.js");
@@ -24,8 +27,6 @@ const httpLogger = require("./routes/httpLogger.js");
 app.use(httpLogger);
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-
-var { RateLimiterMemory, RateLimiterRes } = require("rate-limiter-flexible");
 
 var productview = require("./routes/productview");
 var productImg = require("./routes/productimg");
@@ -42,6 +43,13 @@ var store = require("./routes/syncToDb.js");
 var webhooks = require("./routes/webhooks.js");
 var connection = require("./routes/custom_modules/connection.js");
 var queries = require("./routes/custom_modules/queries.js");
+var passwordreset = require("./routes/passwordreset.js");
+
+const limit = rateLimit({
+  max: 30, // max requests
+  windowMs: 60 * 60 * 1000, // 1 Hour
+  message: '<!DOCTYPE html><html><head><title>Body Aware Central</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.3.1/dist/semantic.min.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.11.8/semantic.min.js"></script><meta name="robots" content="noindex"><style type="text/css">body {background-color: #DADADA;}</style></head><body><div style="margin: 10% auto; width: 50%; text-align: center;" class="ui negative message"><div class="header">Sorry you have used too many attempts to login.</div><p>Please contact the web adminstrator.</p></div></body></html>' // message to send
+});
 
 connection.connect(function (err) {
   if (err) throw err;
@@ -65,11 +73,19 @@ require("./config/passport")(passport);
 app.set("view engine", "ejs");
 app.set("trust proxy", true);
 app.set("port", process.env.PORT || 3000);
-
 app.locals.moment = require("moment");
 app.use(cors());
 
-app.use(morgan("dev"));
+function skipLog(req, res) {
+  var url = req.url;
+  if (url.indexOf("?") > 0) url = url.substr(0, url.indexOf("?"));
+  if (url.match(/(js|jpg|png|ico|css|woff|woff2|eot)$/gi)) {
+    return true;
+  }
+  return false;
+}
+
+app.use(morgan("dev", { skip: skipLog }));
 var options = {
   host: "localhost",
   port: 3306,
@@ -112,6 +128,7 @@ app.use(printshippinglabels);
 app.use(userProfile);
 app.use(store);
 app.use(webhooks);
+app.use(passwordreset);
 
 app.use("/product_view", productview);
 app.use("/productImg", productImg);
@@ -120,127 +137,42 @@ app.use("/orders", orderview);
 app.use("/print", printview);
 app.use("/store", store);
 
-const maxWrongAttemptsFromIPperDay = 100;
-const maxConsecutiveFailsByUsernameAndIP = 10;
-
-const limiterSlowBruteByIP = new RateLimiterMemory({
-  keyPrefix: "login_fail_ip_per_day",
-  points: maxWrongAttemptsFromIPperDay,
-  duration: 60 * 60 * 24,
-  blockDuration: 60 * 60 * 3, // Block for 3 hours, if 100 wrong attempts per day
-});
-
-const limiterConsecutiveFailsByUsernameAndIP = new RateLimiterMemory({
-  keyPrefix: "login_fail_consecutive_username_and_ip",
-  points: maxConsecutiveFailsByUsernameAndIP,
-  duration: 60 * 60 * 24 * 14, // Store number for 14 days since first fail
-  blockDuration: 60 * 60, // Block for 1 hour
-});
+// ////////////////////////////////////////////////////////////
 
 passport.use(
-  // "local-login",
-  new LocalStrategy(
-    {
+  'local-login',
+  new LocalStrategy({
       // by default, local strategy uses username and password, we will override with email
-      // usernameField: "username",
-      // passwordField: "password",
-      passReqToCallback: true, // allows us to pass back the entire request to the callback
-    },
-    async function (req, username, password, done) {
-      const usernameIPkey = `${username}_${req.ip}`;
-      let resUsernameAndIP;
-      try {
-        let retrySecs = 0;
+      usernameField : 'username',
+      passwordField : 'password',
+      emailField : 'email',
+      passReqToCallback : true // allows us to pass back the entire request to the callback
+  },
+  function(req, username, password, done) { // callback with email and password from our form
 
-        const resGet = await Promise.all([
-          limiterConsecutiveFailsByUsernameAndIP.get(usernameIPkey),
-          limiterSlowBruteByIP.get(req.ip),
-        ]);
-        resUsernameAndIP = resGet[0];
-        const resSlowByIP = resGet[1];
-        // Check if IP or Username + IP is already blocked
-        if (
-          resSlowByIP !== null &&
-          resSlowByIP.consumedPoints > maxWrongAttemptsFromIPperDay
-        ) {
-          retrySecs = Math.round(resSlowByIP.msBeforeNext / 1000) || 1;
-        } else if (
-          resUsernameAndIP !== null &&
-          resUsernameAndIP.consumedPoints > maxConsecutiveFailsByUsernameAndIP
-        ) {
-          retrySecs = Math.round(resUsernameAndIP.msBeforeNext / 1000) || 1;
-        }
+      connection.query(queries.userName,[username], function(err, rows){
+          if (err)
+              return done(err);
+          if (!rows.length) {
+              return done(null, false, req.flash('loginMessage', 'No user found.')); // req.flash is the way to set flashdata using connect-flash
+          }
 
-        if (retrySecs > 0) {
-          return done(null, false, { statusCode: 429, retrySecs });
-        }
-      } catch (err) {
-        return done(err);
-      }
-      // callback with email and password from our form
-      connection.query(queries.userName, [username], async function (
-        err,
-        rows
-      ) {
-        if (err) {
-          //console.log("1st: " + err);
-          return done(err);
-        }
-        if (!rows.length || !bcrypt.compareSync(password, rows[0].password)) {
-          try {
-            await Promise.all([
-              limiterConsecutiveFailsByUsernameAndIP.consume(usernameIPkey),
-              limiterSlowBruteByIP.consume(req.ip),
-            ]);
-            return done(
-              null,
-              false,
-              req.flash("loginMessage", "Oops! Wrong user or wrong password.")
-            );
-          } catch (rlRejected) {
-            if (rlRejected instanceof RateLimiterRes) {
-              return done(null, false, {
-                statusCode: 429,
-                retrySecs: Math.round(rlRejected.msBeforeNext / 1000) || 1,
-              });
-            } else {
-              //console.log("3rd: " + rlRejected);
-              return done(rlRejected);
-            }
-          }
-        } else {
-          if (
-            resUsernameAndIP !== null &&
-            resUsernameAndIP.consumedPoints > 0
-          ) {
-            // Reset on successful authorisation
-            try {
-              await limiterConsecutiveFailsByUsernameAndIP.delete(
-                usernameIPkey
-              );
-            } catch (err) {
-              // handle err only when other than memory limiter used
-              //console.log("2nd: " + err);
-            }
-          }
+          // if the user is found but the password is wrong
+          if (!bcrypt.compareSync(password, rows[0].password))
+              return done(null, false, req.flash('loginMessage', 'Oops! Wrong password.')); // create the loginMessage and save it to session as flashdata
+
           // all is well, return successful user
           return done(null, rows[0]);
-        }
       });
-    }
-  )
+  })
 );
 
-passport.serializeUser(function (user, done) {
-  done(null, user.id);
-});
 
-// used to deserialize the user
-passport.deserializeUser(function (id, done) {
-  connection.query(queries.userDeserial, [id], function (err, rows) {
-    done(err, rows[0]);
-  });
-});
+app.use('/img/*', isLoggedIn);
+app.use(xss());
+app.use(express.json({ limit: '10kb' }));  //body limit is 10kb
+app.use(express.static(__dirname + "/public"));
+app.use(favicon(__dirname + "/public/img/favicon.ico"));
 
 //require("./routes/loginroutes.js")(app, passport);
 app.get("/", function (req, res) {
@@ -256,13 +188,7 @@ app.get("/", function (req, res) {
     }
   );
 });
-var authentication = passport.authenticate("local-login", {
-  successRedirect: "/home", // redirect to the secure profile section
-  failureRedirect: "/", // redirect back to the signup page if there is an error
-  failureFlash: true, // allow flash messages
-});
-app.use(authentication, express.static(__dirname + "/public"));
-app.use(favicon(__dirname + "/public/img/favicon.ico"));
+
 app.get("/home", isLoggedIn, function (req, res, next) {
   var username = req.user.username;
   sqlQuery(
@@ -317,27 +243,16 @@ app.get("/logout", function (req, res) {
   res.redirect("/");
 });
 
-app.post("/", authentication, function (res, err, user, context = {}) {
-  if (err) {
-    console.log("1st: " + err);
-    return next(err);
-  }
-  if (context.statusCode === 429) {
-    console.log("status code was triggered");
-    res.set("Retry-After", String(context.retrySecs));
-    return res.status(429).send("Too Many Requests");
-  }
-  if (!user) {
-    console.log("user was triggered");
-    return res.redirect("/");
-  }
-  console.log("Success");
-  res.redirect("/home");
+app.post(
+  "/", limit,
+  passport.authenticate("local-login", {
+    successRedirect: "/home", // redirect to the secure profile section
+    failureRedirect: "/", // redirect back to the signup page if there is an error
+    failureFlash: true, // allow flash messages
+  }), function(req, res){
+    res.redirect("/home")
 });
 
-app.get("/img/*", isLoggedIn, (req, res, next) => {
-  return res.sendFile(path.join(__dirname, "img", path.sep, file));
-});
 
 app.get("/*", function (req, res) {
   res.redirect("/");
